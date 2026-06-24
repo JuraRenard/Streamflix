@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamFlix - Now Playing</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="navbar-container"></div>
+
+    <main class="watch-page">
+        <!-- Player Section -->
+        <div class="player-section">
+            <div class="player-container">
+                <div class="player-loader" id="playerLoader">
+                    <div class="spinner"></div>
+                    <p>Loading player...</p>
+                </div>
+                <iframe id="playerIframe" allowfullscreen allow="autoplay; fullscreen"></iframe>
+            </div>
+        </div>
+
+        <!-- Details Section -->
+        <div class="watch-details">
+            <div class="details-layout">
+                <div class="details-poster">
+                    <img id="detailsPoster" src="" alt="">
+                </div>
+                <div class="details-info">
+                    <h1 class="details-title" id="detailsTitle">Loading...</h1>
+                    <div class="details-meta">
+                        <span class="meta-item" id="detailsYear"></span>
+                        <span class="meta-item rating">
+                            <i class="fas fa-star"></i>
+                            <span id="detailsRating"></span>
+                        </span>
+                        <span class="meta-item type" id="detailsType"></span>
+                        <span class="meta-item" id="detailsRuntime"></span>
+                    </div>
+                    <div class="details-genres" id="detailsGenres"></div>
+                    <p class="details-overview" id="detailsOverview"></p>
+                    
+                    <div class="details-extra">
+                        <div class="extra-item">
+                            <strong>Status:</strong> <span id="detailsStatus"></span>
+                        </div>
+                        <div class="extra-item">
+                            <strong>Original Language:</strong> <span id="detailsLanguage"></span>
+                        </div>
+                        <div class="extra-item" id="detailsBudget" style="display:none;">
+                            <strong>Budget:</strong> <span id="detailsBudgetValue"></span>
+                        </div>
+                        <div class="extra-item" id="detailsRevenue" style="display:none;">
+                            <strong>Revenue:</strong> <span id="detailsRevenueValue"></span>
+                        </div>
+                        <div class="extra-item" id="detailsSeasons" style="display:none;">
+                            <strong>Seasons:</strong> <span id="detailsSeasonsValue"></span>
+                        </div>
+                        <div class="extra-item" id="detailsEpisodes" style="display:none;">
+                            <strong>Episodes:</strong> <span id="detailsEpisodesValue"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Similar Content -->
+            <section class="content-section">
+                <h2 class="section-title"><i class="fas fa-layer-group"></i> You May Also Like</h2>
+                <div class="cards-row" id="similarRow"></div>
+            </section>
+        </div>
+    </main>
+
+    <div id="footer-container"></div>
+    <div class="toast" id="toast"></div>
+
+    <script src="app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            App.init('watch');
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            const mediaType = urlParams.get('type') || 'movie';
+            const tmdbId = urlParams.get('id');
+            
+            if (!tmdbId) {
+                document.querySelector('.watch-page').innerHTML = 
+                    '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h2>Invalid URL</h2><p>Missing media ID</p><a href="index.html" class="btn btn-primary">Go Home</a></div>';
+                return;
+            }
+            
+            // Set page title
+            document.title = `StreamFlix - Loading...`;
+            
+            // Setup player
+            const embedUrl = mediaType === 'movie' 
+                ? `https://vsembed.ru/embed/movie?tmdb=${tmdbId}`
+                : `https://vsembed.ru/embed/tv?tmdb=${tmdbId}`;
+            
+            const iframe = document.getElementById('playerIframe');
+            const loader = document.getElementById('playerLoader');
+            
+            iframe.src = embedUrl;
+            iframe.onload = () => {
+                loader.classList.add('hidden');
+                iframe.style.opacity = '1';
+            };
+            setTimeout(() => {
+                loader.classList.add('hidden');
+                iframe.style.opacity = '1';
+            }, 5000);
+            
+            // Load details
+            try {
+                const details = await App.api.getDetails(mediaType, tmdbId);
+                
+                document.title = `StreamFlix - ${details.title || details.name}`;
+                
+                const title = details.title || details.name;
+                const year = (details.release_date || details.first_air_date || '').substring(0, 4);
+                const rating = details.vote_average ? details.vote_average.toFixed(1) : 'N/A';
+                const posterUrl = App.utils.getImageUrl(details.poster_path);
+                
+                document.getElementById('detailsTitle').textContent = title;
+                document.getElementById('detailsYear').textContent = year || 'Unknown';
+                document.getElementById('detailsRating').textContent = rating;
+                document.getElementById('detailsType').textContent = mediaType === 'movie' ? 'Movie' : 'TV Series';
+                document.getElementById('detailsOverview').textContent = details.overview || 'No overview available.';
+                document.getElementById('detailsStatus').textContent = details.status || 'N/A';
+                document.getElementById('detailsLanguage').textContent = details.original_language?.toUpperCase() || 'N/A';
+                
+                if (posterUrl) {
+                    document.getElementById('detailsPoster').src = posterUrl;
+                }
+                
+                // Runtime / Episodes
+                if (mediaType === 'movie' && details.runtime) {
+                    const hrs = Math.floor(details.runtime / 60);
+                    const mins = details.runtime % 60;
+                    document.getElementById('detailsRuntime').textContent = `${hrs}h ${mins}m`;
+                } else if (mediaType === 'tv') {
+                    document.getElementById('detailsSeasons').style.display = 'block';
+                    document.getElementById('detailsSeasonsValue').textContent = details.number_of_seasons || 'N/A';
+                    document.getElementById('detailsEpisodes').style.display = 'block';
+                    document.getElementById('detailsEpisodesValue').textContent = details.number_of_episodes || 'N/A';
+                }
+                
+                // Budget/Revenue for movies
+                if (mediaType === 'movie') {
+                    if (details.budget) {
+                        document.getElementById('detailsBudget').style.display = 'block';
+                        document.getElementById('detailsBudgetValue').textContent = `$${details.budget.toLocaleString()}`;
+                    }
+                    if (details.revenue) {
+                        document.getElementById('detailsRevenue').style.display = 'block';
+                        document.getElementById('detailsRevenueValue').textContent = `$${details.revenue.toLocaleString()}`;
+                    }
+                }
+                
+                // Genres
+                const genresContainer = document.getElementById('detailsGenres');
+                if (details.genres) {
+                    details.genres.forEach(g => {
+                        const tag = document.createElement('span');
+                        tag.className = 'genre-tag';
+                        tag.textContent = g.name;
+                        genresContainer.appendChild(tag);
+                    });
+                }
+                
+                // Add to history
+                App.storage.addRecentlyWatched({
+                    id: details.id,
+                    media_type: mediaType,
+                    title: title,
+                    poster_path: details.poster_path,
+                    release_date: details.release_date,
+                    first_air_date: details.first_air_date,
+                    vote_average: details.vote_average
+                });
+                
+                // Load similar content
+                const similar = await App.api.getSimilar(mediaType, tmdbId);
+                const similarItems = similar.results.map(i => ({ ...i, media_type: mediaType }));
+                App.ui.renderCardsRow('similarRow', similarItems);
+                
+            } catch (e) {
+                document.getElementById('detailsTitle').textContent = 'Failed to load details';
+                document.getElementById('detailsOverview').textContent = 'Please try again later.';
+            }
+        });
+    </script>
+</body>
+</html>
