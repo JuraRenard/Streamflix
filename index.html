@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="StreamFlix - Stream your favorite movies and TV series">
+    <title>StreamFlix - Movies & TV Series</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-film"></i>
+                <span>StreamFlix</span>
+            </div>
+            
+            <div class="search-wrapper">
+                <div class="search-box">
+                    <i class="fas fa-search search-icon"></i>
+                    <input 
+                        type="text" 
+                        id="searchInput" 
+                        class="search-input" 
+                        placeholder="Search movies & TV series..."
+                        autocomplete="off"
+                    >
+                    <button class="clear-btn" id="clearBtn" title="Clear search">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <button class="search-btn" id="searchBtn" title="Search">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+                <!-- Search Suggestions Dropdown -->
+                <div class="suggestions-dropdown" id="suggestionsDropdown"></div>
+            </div>
+            
+            <div class="nav-actions">
+                <button class="theme-toggle" id="themeToggle" title="Toggle theme">
+                    <i class="fas fa-moon"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero" id="hero">
+        <div class="hero-content">
+            <h1 class="hero-title">Unlimited Movies & TV Shows</h1>
+            <p class="hero-subtitle">Discover, search and stream your favorite content instantly.</p>
+            <div class="hero-search">
+                <input 
+                    type="text" 
+                    id="heroSearchInput" 
+                    class="hero-search-input" 
+                    placeholder="What would you like to watch today?"
+                >
+                <button class="hero-search-btn" id="heroSearchBtn">
+                    <i class="fas fa-search"></i> Search
+                </button>
+            </div>
+        </div>
+        <div class="hero-overlay"></div>
+    </section>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Search Results Section (hidden by default) -->
+        <section class="section search-results-section" id="searchResultsSection" style="display: none;">
+            <h2 class="section-title">
+                <i class="fas fa-search"></i>
+                <span id="searchResultsTitle">Search Results</span>
+            </h2>
+            <div class="cards-grid" id="searchResultsGrid"></div>
+        </section>
+
+        <!-- Trending Section -->
+        <section class="section" id="trendingSection">
+            <h2 class="section-title">
+                <i class="fas fa-fire"></i>
+                Trending Now
+            </h2>
+            <div class="cards-scroll" id="trendingGrid"></div>
+        </section>
+
+        <!-- Popular Movies Section -->
+        <section class="section" id="popularMoviesSection">
+            <h2 class="section-title">
+                <i class="fas fa-film"></i>
+                Popular Movies
+            </h2>
+            <div class="cards-scroll" id="popularMoviesGrid"></div>
+        </section>
+
+        <!-- Popular TV Section -->
+        <section class="section" id="popularTvSection">
+            <h2 class="section-title">
+                <i class="fas fa-tv"></i>
+                Popular TV Series
+            </h2>
+            <div class="cards-scroll" id="popularTvGrid"></div>
+        </section>
+
+        <!-- Recently Watched Section -->
+        <section class="section" id="recentlyWatchedSection" style="display: none;">
+            <div class="section-header">
+                <h2 class="section-title">
+                    <i class="fas fa-history"></i>
+                    Recently Watched
+                </h2>
+                <button class="clear-history-btn" id="clearHistoryBtn">
+                    <i class="fas fa-trash"></i> Clear History
+                </button>
+            </div>
+            <div class="cards-scroll" id="recentlyWatchedGrid"></div>
+        </section>
+    </main>
+
+    <!-- Media Player Modal -->
+    <div class="player-modal" id="playerModal">
+        <div class="player-modal-content">
+            <button class="player-close-btn" id="playerCloseBtn" title="Close">
+                <i class="fas fa-times"></i>
+            </button>
+            
+            <!-- Player Container -->
+            <div class="player-container">
+                <div class="player-loader" id="playerLoader">
+                    <div class="spinner"></div>
+                    <p>Loading player...</p>
+                </div>
+                <iframe 
+                    id="playerIframe" 
+                    class="player-iframe"
+                    allowfullscreen
+                    allow="autoplay; fullscreen"
+                    referrerpolicy="origin"
+                ></iframe>
+            </div>
+            
+            <!-- Media Details -->
+            <div class="media-details" id="mediaDetails">
+                <div class="media-details-poster">
+                    <img id="detailsPoster" src="" alt="Poster">
+                </div>
+                <div class="media-details-info">
+                    <h2 class="details-title" id="detailsTitle"></h2>
+                    <div class="details-meta">
+                        <span class="details-year" id="detailsYear"></span>
+                        <span class="details-rating" id="detailsRating">
+                            <i class="fas fa-star"></i>
+                            <span id="detailsRatingValue"></span>
+                        </span>
+                        <span class="details-type" id="detailsType"></span>
+                    </div>
+                    <div class="details-genres" id="detailsGenres"></div>
+                    <p class="details-overview" id="detailsOverview"></p>
+                    <div class="details-id">
+                        <strong>TMDB ID:</strong> <span id="detailsTmdbId"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Back to Top Button -->
+    <button class="back-to-top" id="backToTop" title="Back to top">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p>&copy; 2026 StreamFlix. Powered by TMDB API. For educational purposes only.</p>
+        </div>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+          </html>
