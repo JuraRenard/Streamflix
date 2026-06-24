@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamFlix - Watch History</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="navbar-container"></div>
+
+    <main class="main-content page-content">
+        <div class="page-header">
+            <div>
+                <h1 class="page-title"><i class="fas fa-history"></i> Watch History</h1>
+                <p class="page-subtitle">Your recently watched movies and TV shows</p>
+            </div>
+            <button class="btn btn-danger" id="clearHistoryBtn">
+                <i class="fas fa-trash"></i> Clear History
+            </button>
+        </div>
+
+        <div class="cards-grid" id="historyGrid"></div>
+
+        <div class="empty-state" id="emptyState" style="display: none;">
+            <i class="fas fa-clock"></i>
+            <h2>No watch history yet</h2>
+            <p>Start watching to build your history</p>
+            <a href="index.html" class="btn btn-primary">Browse Content</a>
+        </div>
+    </main>
+
+    <div id="footer-container"></div>
+    <button class="back-to-top" id="backToTop"><i class="fas fa-arrow-up"></i></button>
+    <div class="toast" id="toast"></div>
+
+    <script src="app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            App.init('history');
+            
+            function renderHistory() {
+                const history = App.storage.getRecentlyWatched();
+                const grid = document.getElementById('historyGrid');
+                const empty = document.getElementById('emptyState');
+                
+                if (history.length === 0) {
+                    grid.style.display = 'none';
+                    empty.style.display = 'flex';
+                } else {
+                    grid.style.display = 'grid';
+                    empty.style.display = 'none';
+                    App.ui.renderCardsGrid('historyGrid', history);
+                }
+            }
+            
+            document.getElementById('clearHistoryBtn').addEventListener('click', () => {
+                if (confirm('Clear all watch history? This cannot be undone.')) {
+                    App.storage.clearRecentlyWatched();
+                    renderHistory();
+                    App.ui.showToast('History cleared', 'success');
+                }
+            });
+            
+            renderHistory();
+        });
+    </script>
+</body>
+</html>
