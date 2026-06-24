@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamFlix - Browse TV Shows</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="navbar-container"></div>
+
+    <main class="main-content page-content">
+        <div class="page-header">
+            <h1 class="page-title"><i class="fas fa-tv"></i> Browse TV Shows</h1>
+            <p class="page-subtitle">Binge-worthy series from around the world</p>
+        </div>
+
+        <div class="filters-bar">
+            <div class="filter-group">
+                <label>Genre:</label>
+                <select id="genreFilter" class="filter-select">
+                    <option value="">All Genres</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Sort By:</label>
+                <select id="sortFilter" class="filter-select">
+                    <option value="popular">Popular</option>
+                    <option value="top_rated">Top Rated</option>
+                    <option value="airing_today">Airing Today</option>
+                    <option value="on_the_air">On The Air</option>
+                    <option value="first_air_date.desc">Air Date ↓</option>
+                    <option value="vote_average.desc">Rating ↓</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Year:</label>
+                <select id="yearFilter" class="filter-select">
+                    <option value="">All Years</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="cards-grid" id="tvGrid">
+            <div class="skeleton-grid" id="tvSkeleton"></div>
+        </div>
+
+        <div class="pagination" id="pagination"></div>
+    </main>
+
+    <div id="footer-container"></div>
+    <button class="back-to-top" id="backToTop"><i class="fas fa-arrow-up"></i></button>
+    <div class="toast" id="toast"></div>
+
+    <script src="app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            App.init('tvshows');
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            let currentPage = parseInt(urlParams.get('page')) || 1;
+            let currentSort = urlParams.get('sort') || 'popular';
+            let currentGenre = urlParams.get('genre') || '';
+            let currentYear = urlParams.get('year') || '';
+            
+            const yearSelect = document.getElementById('yearFilter');
+            const currentYearNum = new Date().getFullYear();
+            for (let y = currentYearNum; y >= 1950; y--) {
+                const opt = document.createElement('option');
+                opt.value = y;
+                opt.textContent = y;
+                yearSelect.appendChild(opt);
+            }
+            
+            App.api.getGenres('tv').then(data => {
+                const genreSelect = document.getElementById('genreFilter');
+                data.genres.forEach(g => {
+                    const opt = document.createElement('option');
+                    opt.value = g.id;
+                    opt.textContent = g.name;
+                    genreSelect.appendChild(opt);
+                });
+                genreSelect.value = currentGenre;
+            });
+            
+            document.getElementById('sortFilter').value = currentSort;
+            document.getElementById('yearFilter').value = currentYear;
+            
+            async function loadTvShows() {
+                App.ui.renderSkeletons('tvSkeleton', 20, true);
+                
+                try {
+                    let data;
+                    if (currentGenre) {
+                        data = await App.api.discoverTv({
+                            page: currentPage,
+                            with_genres: currentGenre,
+                            sort_by: currentSort.includes('.') ? currentSort : undefined,
+                            first_air_date_year: currentYear || undefined
+                        });
+                    } else if (['popular', 'top_rated', 'airing_today', 'on_the_air'].includes(currentSort)) {
+                        const endpoints = {
+                            popular: () => App.api.getPopularTv(currentPage),
+                            top_rated: () => App.api.getTopRated('tv', currentPage),
+                            airing_today: () => App.api.getAiringToday(currentPage),
+                            on_the_air: () => App.api.getOnTheAir(currentPage)
+                        };
+                        data = await endpoints[currentSort]();
+                    } else {
+                        data = await App.api.discoverTv({
+                            page: currentPage,
+                            sort_by: currentSort,
+                            first_air_date_year: currentYear || undefined
+                        });
+                    }
+                    
+                    const shows = data.results.map(t => ({ ...t, media_type: 'tv' }));
+                    App.ui.renderCardsGrid('tvGrid', shows);
+                    App.ui.renderPagination('pagination', currentPage, data.total_pages, (page) => {
+                        currentPage = page;
+                        updateURL();
+                        loadTvShows();
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    });
+                } catch (e) {
+                    document.getElementById('tvGrid').innerHTML = 
+                        '<p class="error-msg">Failed to load TV shows. Please try again.</p>';
+                }
+            }
+            
+            function updateURL() {
+                const params = new URLSearchParams();
+                if (currentPage > 1) params.set('page', currentPage);
+                if (currentSort !== 'popular') params.set('sort', currentSort);
+                if (currentGenre) params.set('genre', currentGenre);
+                if (currentYear) params.set('year', currentYear);
+                const newUrl = `${window.location.pathname}${params.toString() ? '?' + params : ''}`;
+                window.history.pushState({}, '', newUrl);
+            }
+            
+            document.getElementById('sortFilter').addEventListener('change', (e) => {
+                currentSort = e.target.value;
+                currentPage = 1;
+                updateURL();
+                loadTvShows();
+            });
+            
+            document.getElementById('genreFilter').addEventListener('change', (e) => {
+                currentGenre = e.target.value;
+                currentPage = 1;
+                updateURL();
+                loadTvShows();
+            });
+            
+            document.getElementById('yearFilter').addEventListener('change', (e) => {
+                currentYear = e.target.value;
+                currentPage = 1;
+                updateURL();
+                loadTvShows();
+            });
+            
+            loadTvShows();
+        });
+    </script>
+</body>
+</html>
