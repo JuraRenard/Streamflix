@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamFlix - Browse Movies</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="navbar-container"></div>
+
+    <main class="main-content page-content">
+        <div class="page-header">
+            <h1 class="page-title"><i class="fas fa-film"></i> Browse Movies</h1>
+            <p class="page-subtitle">Discover thousands of movies across every genre</p>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters-bar">
+            <div class="filter-group">
+                <label>Genre:</label>
+                <select id="genreFilter" class="filter-select">
+                    <option value="">All Genres</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Sort By:</label>
+                <select id="sortFilter" class="filter-select">
+                    <option value="popular">Popular</option>
+                    <option value="top_rated">Top Rated</option>
+                    <option value="upcoming">Upcoming</option>
+                    <option value="now_playing">Now Playing</option>
+                    <option value="release_date.desc">Release Date ↓</option>
+                    <option value="release_date.asc">Release Date ↑</option>
+                    <option value="vote_average.desc">Rating ↓</option>
+                    <option value="vote_average.asc">Rating ↑</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Year:</label>
+                <select id="yearFilter" class="filter-select">
+                    <option value="">All Years</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Results Grid -->
+        <div class="cards-grid" id="moviesGrid">
+            <div class="skeleton-grid" id="moviesSkeleton"></div>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination" id="pagination"></div>
+    </main>
+
+    <div id="footer-container"></div>
+    <button class="back-to-top" id="backToTop"><i class="fas fa-arrow-up"></i></button>
+    <div class="toast" id="toast"></div>
+
+    <script src="app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            App.init('movies');
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            let currentPage = parseInt(urlParams.get('page')) || 1;
+            let currentSort = urlParams.get('sort') || 'popular';
+            let currentGenre = urlParams.get('genre') || '';
+            let currentYear = urlParams.get('year') || '';
+            
+            // Populate year filter
+            const yearSelect = document.getElementById('yearFilter');
+            const currentYearNum = new Date().getFullYear();
+            for (let y = currentYearNum; y >= 1950; y--) {
+                const opt = document.createElement('option');
+                opt.value = y;
+                opt.textContent = y;
+                yearSelect.appendChild(opt);
+            }
+            
+            // Load genres
+            App.api.getGenres('movie').then(data => {
+                const genreSelect = document.getElementById('genreFilter');
+                data.genres.forEach(g => {
+                    const opt = document.createElement('option');
+                    opt.value = g.id;
+                    opt.textContent = g.name;
+                    genreSelect.appendChild(opt);
+                });
+                genreSelect.value = currentGenre;
+            });
+            
+            document.getElementById('sortFilter').value = currentSort;
+            document.getElementById('yearFilter').value = currentYear;
+            
+            async function loadMovies() {
+                App.ui.renderSkeletons('moviesSkeleton', 20, true);
+                
+                try {
+                    let data;
+                    if (currentGenre) {
+                        data = await App.api.discoverMovies({
+                            page: currentPage,
+                            with_genres: currentGenre,
+                            sort_by: currentSort.includes('.') ? currentSort : undefined,
+                            primary_release_year: currentYear || undefined
+                        });
+                    } else if (['popular', 'top_rated', 'upcoming', 'now_playing'].includes(currentSort)) {
+                        const endpoints = {
+                            popular: () => App.api.getPopularMovies(currentPage),
+                            top_rated: () => App.api.getTopRated('movie', currentPage),
+                            upcoming: () => App.api.getUpcoming(currentPage),
+                            now_playing: () => App.api.getNowPlaying(currentPage)
+                        };
+                        data = await endpoints[currentSort]();
+                    } else {
+                        data = await App.api.discoverMovies({
+                            page: currentPage,
+                            sort_by: currentSort,
+                            primary_release_year: currentYear || undefined
+                        });
+                    }
+                    
+                    const movies = data.results.map(m => ({ ...m, media_type: 'movie' }));
+                    App.ui.renderCardsGrid('moviesGrid', movies);
+                    App.ui.renderPagination('pagination', currentPage, data.total_pages, (page) => {
+                        currentPage = page;
+                        updateURL();
+                        loadMovies();
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    });
+                } catch (e) {
+                    document.getElementById('moviesGrid').innerHTML = 
+                        '<p class="error-msg">Failed to load movies. Please try again.</p>';
+                }
+            }
+            
+            function updateURL() {
+                const params = new URLSearchParams();
+                if (currentPage > 1) params.set('page', currentPage);
+                if (currentSort !== 'popular') params.set('sort', currentSort);
+                if (currentGenre) params.set('genre', currentGenre);
+                if (currentYear) params.set('year', currentYear);
+                const newUrl = `${window.location.pathname}${params.toString() ? '?' + params : ''}`;
+                window.history.pushState({}, '', newUrl);
+            }
+            
+            // Filter event listeners
+            document.getElementById('sortFilter').addEventListener('change', (e) => {
+                currentSort = e.target.value;
+                currentPage = 1;
+                updateURL();
+                loadMovies();
+            });
+            
+            document.getElementById('genreFilter').addEventListener('change', (e) => {
+                currentGenre = e.target.value;
+                currentPage = 1;
+                updateURL();
+                loadMovies();
+            });
+            
+            document.getElementById('yearFilter').addEventListener('change', (e) => {
+                currentYear = e.target.value;
+                currentPage = 1;
+                updateURL();
+                loadMovies();
+            });
+            
+            loadMovies();
+        });
+    </script>
+</body>
+</html>
