@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamFlix - Search</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="navbar-container"></div>
+
+    <main class="main-content page-content">
+        <div class="search-hero">
+            <h1 class="page-title"><i class="fas fa-search"></i> Search</h1>
+            <div class="search-box-large">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search for movies, TV shows..." autofocus>
+                <button class="clear-btn" id="clearBtn"><i class="fas fa-times"></i></button>
+            </div>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div class="search-tabs" id="searchTabs" style="display: none;">
+            <button class="tab-btn active" data-filter="all">All</button>
+            <button class="tab-btn" data-filter="movie">Movies</button>
+            <button class="tab-btn" data-filter="tv">TV Shows</button>
+        </div>
+
+        <div id="searchInfo" class="search-info"></div>
+
+        <div class="cards-grid" id="searchGrid"></div>
+
+        <!-- Empty State -->
+        <div class="empty-state" id="emptyState">
+            <i class="fas fa-film"></i>
+            <h2>Find your next favorite</h2>
+            <p>Search for movies, TV shows, and more</p>
+        </div>
+
+        <div class="pagination" id="pagination"></div>
+    </main>
+
+    <div id="footer-container"></div>
+    <button class="back-to-top" id="backToTop"><i class="fas fa-arrow-up"></i></button>
+    <div class="toast" id="toast"></div>
+
+    <script src="app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            App.init('search');
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            const initialQuery = urlParams.get('q') || '';
+            let currentFilter = urlParams.get('type') || 'all';
+            let currentPage = parseInt(urlParams.get('page')) || 1;
+            let currentQuery = initialQuery;
+            
+            const searchInput = document.getElementById('searchInput');
+            const clearBtn = document.getElementById('clearBtn');
+            const searchGrid = document.getElementById('searchGrid');
+            const emptyState = document.getElementById('emptyState');
+            const searchInfo = document.getElementById('searchInfo');
+            const searchTabs = document.getElementById('searchTabs');
+            
+            searchInput.value = initialQuery;
+            
+            // Tab filters
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentFilter = btn.dataset.filter;
+                    currentPage = 1;
+                    updateURL();
+                    performSearch();
+                });
+                
+                if (btn.dataset.filter === currentFilter) {
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                }
+            });
+            
+            searchInput.addEventListener('input', (e) => {
+                clearBtn.style.display = e.target.value ? 'flex' : 'none';
+                App.utils.debounce(() => {
+                    currentQuery = e.target.value.trim();
+                    currentPage = 1;
+                    if (currentQuery.length >= 2) {
+                        updateURL();
+                        performSearch();
+                    } else if (currentQuery.length === 0) {
+                        searchGrid.innerHTML = '';
+                        searchInfo.textContent = '';
+                        searchTabs.style.display = 'none';
+                        emptyState.style.display = 'flex';
+                    }
+                }, 400)();
+            });
+            
+            clearBtn.addEventListener('click', () => {
+                searchInput.value = '';
+                clearBtn.style.display = 'none';
+                searchGrid.innerHTML = '';
+                searchInfo.textContent = '';
+                searchTabs.style.display = 'none';
+                emptyState.style.display = 'flex';
+                searchInput.focus();
+                window.history.pushState({}, '', 'search.html');
+            });
+            
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    currentQuery = searchInput.value.trim();
+                    currentPage = 1;
+                    updateURL();
+                    performSearch();
+                }
+            });
+            
+            function updateURL() {
+                const params = new URLSearchParams();
+                if (currentQuery) params.set('q', currentQuery);
+                if (currentFilter !== 'all') params.set('type', currentFilter);
+                if (currentPage > 1) params.set('page', currentPage);
+                const newUrl = `search.html${params.toString() ? '?' + params : ''}`;
+                window.history.replaceState({}, '', newUrl);
+            }
+            
+            async function performSearch() {
+                if (!currentQuery) return;
+                
+                emptyState.style.display = 'none';
+                App.ui.renderSkeletons('searchGrid', 20, true);
+                
+                try {
+                    const data = await App.api.searchMulti(currentQuery, currentPage);
+                    let results = data.results;
+                    
+                    if (currentFilter !== 'all') {
+                        results = results.filter(item => item.media_type === currentFilter);
+                    }
+                    
+                    searchInfo.textContent = `Found ${data.total_results.toLocaleString()} results for "${currentQuery}"`;
+                    searchTabs.style.display = 'flex';
+                    
+                    if (results.length === 0) {
+                        searchGrid.innerHTML = `
+                            <div class="empty-state" style="grid-column: 1/-1;">
+                                <i class="fas fa-search"></i>
+                                <h2>No results found</h2>
+                                <p>Try different keywords or check spelling</p>
+                            </div>
+                        `;
+                        document.getElementById('pagination').innerHTML = '';
+                    } else {
+                        App.ui.renderCardsGrid('searchGrid', results);
+                        App.ui.renderPagination('pagination', currentPage, Math.min(data.total_pages, 20), (page) => {
+                            currentPage = page;
+                            updateURL();
+                            performSearch();
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                        });
+                    }
+                } catch (e) {
+                    searchGrid.innerHTML = '<p class="error-msg">Search failed. Please try again.</p>';
+                }
+            }
+            
+            if (initialQuery) performSearch();
+        });
+    </script>
+</body>
+</html>
